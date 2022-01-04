@@ -1,0 +1,1304 @@
+MPASM  5.43                          MAIN.ASM   11-20-2011  15:53:34         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001 ; microsound.asm
+                      00002         LIST    p=16F628a       ;tell assembler what chip we are using
+                      00003         include "P16F628a.inc"  ;include the defaults for the chip
+                      00001         LIST
+                      00002 
+                      00003 ;==========================================================================
+                      00004 ;  MPASM PIC16F628A processor include
+                      00005 ; 
+                      00006 ;  (c) Copyright 1999-2011 Microchip Technology, All rights reserved
+                      00007 ;==========================================================================
+                      00008 
+                      00383         LIST
+2007   3D18           00004         __config 0x3D18                 ;sets the configuration settings (oscillator type etc.)
+                      00005 
+                      00006 ;/***************************************************
+                      00007 ; Jump to Main Loop
+                      00008 ;
+                      00009 ;***************************************************/
+0000                  00010     org 0x0
+0000   28FC           00011     goto   startupcode       ; plenty of room; won't run into our ISR code.
+                      00012 ;/***************************************************   
+                      00013 ;   ContextSave:
+                      00014 ;   Saves important registers before running our interrupt.
+                      00015 ;  (cool code taken from http://www.piclist.com/techref/microchip/ints16Fintro-wcw.htm)
+                      00016 ;
+                      00017 ;***************************************************/
+0004                  00018     org 0x4
+0004                  00019 ContextSave
+0004   00BE           00020     movwf          temp_w_isr      ;save w in temp.  movwf does not change STATUS
+                      00021                                ;; NOTE However, that temp_w must exist in all RAM banks.
+0005   0E03           00022     swapf          STATUS,w    ;put unchanged STATUS in w with nibbles reversed.
+0006   0183           00023     clrf           STATUS      ;now use RAM page 0
+0007   00BF           00024     movwf          temp_s       ;save STATUS in temp_s
+0008   080A           00025     movf           PCLATH,W     ; save PCLATH as well
+0009   00C0           00026     movwf          temp_pclath
+000A   018A           00027     clrf           PCLATH       ; now on code page 0 for sure too.
+Message[305]: Using default destination of 1 (file).
+000B   0884           00028     movf                   FSR
+000C   00C2           00029         movwf              temp_fsr        ;
+                      00030 
+                      00031 ; 200 Cycles total in interrupt.
+000D                  00032 dispathc_int
+000D   108C           00033         bcf PIR1, TMR2IF  ;Gotta clear this interrrupt flag!
+000E   2842           00034         goto int_sound
+                      00035         ;goto intexit  ;Other interrupt  possible? Maybe should just go straight to intsound?
+                      00036 
+                      00037         cblock 0x20
+                      00038 
+                      00039         ;Sound Struct
+  00000020            00040         Key1Th ;Ticks whole part high.
+                      00041         ;Key1Tl ;Ticks decimal part.
+  00000021            00042         Key1Curr; How many updates have we have until our next key set.
+  00000022            00043         Key1State;Is our square wave High (32) or Low (0)
+MPASM  5.43                          MAIN.ASM   11-20-2011  15:53:34         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00044         
+  00000023            00045         Key2Th
+                      00046         ;Key2Tl
+  00000024            00047         Key2Curr
+  00000025            00048         Key2State
+                      00049 
+  00000026            00050         Key3Th ;Ticks whole part high.
+                      00051         ;Key3Tl ;Ticks decimal part.
+  00000027            00052         Key3Curr
+  00000028            00053         Key3State
+                      00054         
+  00000029            00055         Key4Th ;Ticks whole part high.
+                      00056         ;Key4Tl ;Ticks decimal part.
+  0000002A            00057         Key4Curr
+  0000002B            00058         Key4State
+                      00059 
+  0000002C            00060         Key5Th ;Ticks whole part high.
+                      00061         ;Key5Tl ;Ticks decimal part.
+  0000002D            00062         Key5Curr
+  0000002E            00063         Key5State
+                      00064         
+  0000002F            00065         Key6Th ;Ticks whole part high.
+                      00066         ;Key6Tl ;Ticks decimal part.
+  00000030            00067         Key6Curr
+  00000031            00068         Key6State
+                      00069         
+  00000032            00070         Key7Th ;Ticks whole part high.
+                      00071         ;Key7Tl ;Ticks decimal part.
+  00000033            00072         Key7Curr
+  00000034            00073         Key7State
+                      00074         
+  00000035            00075         Key8Th ;Ticks whole part high.
+                      00076         ;Key8Tl ;Ticks decimal part.
+  00000036            00077         Key8Curr
+  00000037            00078         Key8State
+                      00079 
+  00000038            00080         outChannel ;This is a sum of all Keys states then pushed to the PWM register
+                      00081         
+                      00082         ;Main Loop Stuff
+  00000039            00083         currsixth
+  0000003A            00084         keyInSixth
+                      00085 
+                      00086         ;State Save Stuff
+  0000003B            00087         ActiveKeys    ;Which Structs are active?
+  0000003C            00088         PORTA_temp
+  0000003D            00089         temp_w
+  0000003E            00090         temp_w_isr
+  0000003F            00091         temp_s
+  00000040            00092         temp_pclath
+  00000041            00093         fired
+  00000042            00094         temp_fsr
+                      00095         endc
+                      00096 
+MPASM  5.43                          MAIN.ASM   11-20-2011  15:53:34         PAGE  3
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0042                  00097         org 0x42
+                      00098 ;**************************************************************
+                      00099 ;;Sound generation! called via the ISR when Timer1 int is up
+                      00100 ;
+                      00101 ;One Key Length:
+                      00102 ; 4 minimum if no key set
+                      00103 ; 5 on average (should just have to decf and skip til next note)
+                      00104 ; 9 if key goes low
+                      00105 ; 11 if key goes high
+                      00106 ;
+                      00107 ;**************************************************************
+0042                  00108 int_sound
+0042                  00109 Key1                            
+0042   0820           00110         movf Key1Th, w                  
+0043   1903           00111         btfsc STATUS, Z                 ;If the ticksHigh register for this key isn't set then we skip t
+                            his key.
+0044   2851           00112         goto Key1Done;int_exit                  ;Maybe be able to go all the way to the end of the updat
+                            e depending on 
+                      00113         ;First key check                ;how keypresses get to this heezy.
+0045   0BA1           00114         decfsz Key1Curr, f                      
+0046   2851           00115         goto Key1Done                   
+0047                  00116 Key1Set                                         ;If 0 we need to toggle the state of the key.
+0047   0820           00117         movf Key1Th, w                  
+0048   00A1           00118         movwf Key1Curr                  
+0049   1B22           00119         btfsc Key1State, 6                      
+004A   284F           00120         goto Key1Low                    
+004B                  00121 Key1High                                
+004B   3020           00122         movlw .32                       
+004C   00A2           00123         movwf Key1State                 
+004D   07B8           00124         addwf outChannel, f                     
+004E   2851           00125         goto Key1Done                   
+004F                  00126 Key1Low
+004F   3000           00127         movlw 0
+0050   00A2           00128         movwf Key1State
+0051                  00129 Key1Done
+                      00130                                 
+0051                  00131 Key2                            
+0051   0823           00132         movf Key2Th, w                  
+0052   1903           00133         btfsc STATUS, Z                 
+0053   2860           00134         goto Key2Done;int_sound_out                     
+                      00135                                 
+0054   0BA4           00136         decfsz Key2Curr, f                      
+0055   2860           00137         goto Key2Done                   
+0056                  00138 Key2Set                         
+0056   0823           00139         movf Key2Th, w                  
+0057   00A4           00140         movwf Key2Curr                  
+0058   1B25           00141         btfsc Key2State, 6                      
+0059   285E           00142         goto Key2Low                    
+005A                  00143 Key2High                                
+005A   3020           00144         movlw .32                       
+005B   00A5           00145         movwf Key2State                 
+005C   07B8           00146         addwf outChannel, f                     
+005D   2860           00147         goto Key2Done                   
+MPASM  5.43                          MAIN.ASM   11-20-2011  15:53:34         PAGE  4
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+005E                  00148 Key2Low                         
+005E   3000           00149         movlw 0                         
+005F   00A5           00150         movwf Key2State                 
+0060                  00151 Key2Done                                
+                      00152                                 
+0060                  00153 Key3                            
+0060   0826           00154         movf Key3Th, w                  
+0061   1903           00155         btfsc STATUS, Z                 
+0062   286F           00156         goto Key3Done;int_sound_out
+                      00157                                 
+0063   0BA7           00158         decfsz Key3Curr, f                      
+0064   286F           00159         goto Key3Done                   
+0065                  00160 Key3Set                         
+0065   0826           00161         movf Key3Th, w                          
+0066   00A7           00162         movwf Key3Curr                  
+0067   1B28           00163         btfsc Key3State, 6                      
+0068   286D           00164         goto Key3Low                    
+0069                  00165 Key3High                                
+0069   3020           00166         movlw .32                               
+006A   00A8           00167         movwf Key3State                 
+006B   07B8           00168         addwf outChannel, f                     
+006C   286F           00169         goto Key3Done                   
+006D                  00170 Key3Low                         
+006D   3000           00171         movlw 0                         
+006E   00A8           00172         movwf Key3State                 
+006F                  00173 Key3Done                                
+                      00174                                 
+006F                  00175 Key4                            
+006F   0829           00176         movf Key4Th, w                  
+0070   1903           00177         btfsc STATUS, Z                 
+0071   287E           00178         goto Key4Done;int_sound_out
+                      00179                         
+0072   0BAA           00180         decfsz Key4Curr, f                      
+0073   287E           00181         goto Key4Done                   
+0074                  00182 Key4Set                         
+0074   0829           00183         movf Key4Th, w          
+0075   00AA           00184         movwf Key4Curr                  
+0076   1B2B           00185         btfsc Key4State, 6              
+0077   287C           00186         goto Key4Low                    
+0078                  00187 Key4High                                
+0078   3020           00188         movlw .32                               
+0079   00AB           00189         movwf Key4State                 
+007A   07B8           00190         addwf outChannel, f                     
+007B   287E           00191         goto Key4Done                   
+007C                  00192 Key4Low                         
+007C   3000           00193         movlw 0                         
+007D   00AB           00194         movwf Key4State                 
+007E                  00195 Key4Done                                
+                      00196 
+007E                  00197 Key5                            
+007E   082C           00198         movf Key5Th, w                  
+007F   1903           00199         btfsc STATUS, Z                 
+0080   288D           00200         goto Key5Done;int_sound_out
+MPASM  5.43                          MAIN.ASM   11-20-2011  15:53:34         PAGE  5
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00201                                 
+0081   0BAD           00202         decfsz Key5Curr, f                      
+0082   288D           00203         goto Key5Done                   
+0083                  00204 Key5Set                         
+0083   082C           00205         movf Key5Th, w          
+0084   00AD           00206         movwf Key5Curr                  
+0085   1B2E           00207         btfsc Key5State, 6              
+0086   288B           00208         goto Key5Low                    
+0087                  00209 Key5High                                
+0087   3020           00210         movlw .32                               
+0088   00AE           00211         movwf Key5State                 
+0089   07B8           00212         addwf outChannel, f                     
+008A   288D           00213         goto Key5Done                   
+008B                  00214 Key5Low                         
+008B   3000           00215         movlw 0                         
+008C   00AE           00216         movwf Key5State                 
+008D                  00217 Key5Done
+                      00218 
+008D                  00219 Key6                            
+008D   082F           00220         movf Key6Th, w                  
+008E   1903           00221         btfsc STATUS, Z 
+008F   289C           00222         goto Key6Done;int_sound_out
+                      00223         
+0090   0BB0           00224         decfsz Key6Curr, f                      
+0091   289C           00225         goto Key6Done                   
+0092                  00226 Key6Set                         
+0092   082F           00227         movf Key6Th, w          
+0093   00B0           00228         movwf Key6Curr                  
+0094   1B31           00229         btfsc Key6State, 6              
+0095   289A           00230         goto Key6Low                    
+0096                  00231 Key6High                                
+0096   3020           00232         movlw .32                               
+0097   00B1           00233         movwf Key6State                 
+0098   07B8           00234         addwf outChannel, f                     
+0099   289C           00235         goto Key6Done                   
+009A                  00236 Key6Low                         
+009A   3000           00237         movlw 0                         
+009B   00B1           00238         movwf Key6State                 
+009C                  00239 Key6Done
+                      00240 
+009C                  00241 Key7                            
+009C   0832           00242         movf Key7Th, w                  
+009D   1903           00243         btfsc STATUS, Z                 
+009E   28AB           00244         goto Key7Done;int_sound_out
+                      00245                                 
+009F   0BB3           00246         decfsz Key7Curr, f                      
+00A0   28AB           00247         goto Key7Done                   
+00A1                  00248 Key7Set                         
+00A1   0832           00249         movf Key7Th, w          
+00A2   00B3           00250         movwf Key7Curr                  
+00A3   1B34           00251         btfsc Key7State, 6              
+00A4   28A9           00252         goto Key7Low                    
+00A5                  00253 Key7High                                
+MPASM  5.43                          MAIN.ASM   11-20-2011  15:53:34         PAGE  6
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00A5   3020           00254         movlw .32                               
+00A6   00B4           00255         movwf Key7State                 
+00A7   07B8           00256         addwf outChannel, f                     
+00A8   28AB           00257         goto Key7Done                   
+00A9                  00258 Key7Low                         
+00A9   3000           00259         movlw 0                         
+00AA   00B4           00260         movwf Key7State                 
+00AB                  00261 Key7Done
+                      00262 
+00AB                  00263 Key8                            
+00AB   0835           00264         movf Key8Th, w                  
+00AC   1903           00265         btfsc STATUS, Z                 
+00AD   28BA           00266         goto Key8Done;int_sound_out
+                      00267                         
+00AE   0BB6           00268         decfsz Key8Curr, f                      
+00AF   28BA           00269         goto Key8Done                   
+00B0                  00270 Key8Set                         
+00B0   0835           00271         movf Key8Th, w          
+00B1   00B6           00272         movwf Key8Curr                  
+00B2   1B37           00273         btfsc Key8State, 6              
+00B3   28B8           00274         goto Key8Low                    
+00B4                  00275 Key8High                                
+00B4   3020           00276         movlw .32                               
+00B5   00B7           00277         movwf Key8State                 
+00B6   07B8           00278         addwf outChannel, f                     
+00B7   28BA           00279         goto Key8Done                   
+00B8                  00280 Key8Low                         
+00B8   3000           00281         movlw 0                         
+00B9   00B7           00282         movwf Key8State                 
+00BA                  00283 Key8Done
+                      00284 
+                      00285 ;*****************************************************************************
+                      00286 ;
+                      00287 ;Let's throw our generated amplitude into the PWM register!
+                      00288 ;CCPR1L is the low 8 bits of PWM 256 values for us sounds good!
+                      00289 ;
+                      00290 ;*****************************************************************************
+00BA                  00291 int_sound_out
+00BA   0838           00292         movf outChannel, w
+00BB   0095           00293         movwf CCPR1L
+00BC   01B8           00294         clrf outChannel                 ;Out channel needs to be reset. Gets filled up every call.
+                      00295         ;goto intexit
+                      00296 
+00BD                  00297 intexit
+00BD   0840           00298         movf temp_pclath, W
+00BE   008A           00299         movwf PCLATH
+00BF   0E3F           00300         swapf temp_s, W
+00C0   0083           00301         movwf STATUS
+00C1   0E42           00302         swapf temp_fsr, W
+00C2   0084           00303         movwf FSR
+00C3   0EBE           00304         swapf temp_w_isr, F
+00C4   0E3E           00305         swapf temp_w_isr, W
+00C5   0009           00306          retfie
+MPASM  5.43                          MAIN.ASM   11-20-2011  15:53:34         PAGE  7
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00307 
+00FC                  00308         org 0xFC
+                      00309 ;/****************************************
+                      00310 ;  Set up code for the pic pre main loop.
+                      00311 ;
+                      00312 ;
+                      00313 ;
+                      00314 ;****************************************/
+00FC                  00315 startupcode
+                      00316         ;Gotta get a clean slate for the ports. Oddly this effects PORTA's ability to be used as input.
+                      00317         ;This is how the code works in the reference manual.
+00FC   0185           00318         clrf PORTA
+00FD   0186           00319         clrf PORTB
+00FE   01B8           00320         clrf outChannel
+00FF   01BD           00321         clrf temp_w
+                      00322 
+0100   3007           00323         movlw 0x07
+0101   009F           00324         movwf CMCON     ;turn off comparators
+                      00325 
+0102   1303           00326         bcf STATUS, RP1 ;Exit Bank Zero
+0103   1683           00327         bsf STATUS, RP0 ;Bank one sets
+                      00328 
+0104   30FF           00329         movlw 0xFF
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0105   0085           00330         movwf TRISA ;All of PORTA will be inputs
+0106   3000           00331         movlw 0X00
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0107   0086           00332         movwf TRISB ;PORTB will be all outputs
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0108   148C           00333         bsf PIE1, TMR2IE  ;Turn timer 2 interrupt enable on.
+0109   30C8           00334         movlw .200        ;Decimal 200 at 20khz we have 200 cycles before we have to update.
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+010A   0092           00335         movwf PR2
+010B   1283           00336         bcf STATUS, RP0;Exit bank one
+                      00337 
+010C   1512           00338         bsf T2CON, TMR2ON ; Turn on timer 2
+010D   178B           00339         bsf INTCON, GIE ;Turn on all unmasked interupts
+010E   170B           00340         bsf INTCON, PEIE;Turn on peripheral interrupts
+                      00341 
+010F   300C           00342         movlw b'00001100'
+                      00343                 ;bits 10        low bits of CPR1
+0110   0097           00344         movwf CCP1CON; turn PWM on Bits 4:5 are CPR1H (the low bits of the PWM duty cycle)
+0111   3000           00345         movlw b'00000000'
+0112   0095           00346         movwf CCPR1L ; The MS 8 bits of PWM. Start at 0
+                      00347 
+                      00348 ;========================================================
+                      00349 ;
+                      00350 ;    Start of our main loop.
+                      00351 ;    All we are doing is checking for keys pressed.
+                      00352 ;
+                      00353 ;=======================================================
+                      00354 
+0113                  00355 testkeyboard
+MPASM  5.43                          MAIN.ASM   11-20-2011  15:53:34         PAGE  8
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0113   01BB           00356         clrf ActiveKeys;  The current number of channels occupied
+0114   01BA           00357         clrf keyInSixth;How far into this sixth is this key. values 0 - 5 for 6
+                      00358                                         ;keys in a 6th
+0115   01BD           00359         clrf temp_w
+                      00360         ;movlw 0xFF
+                      00361         ;movwf PORTA_temp;Set up our temp PORTA for anding ??
+                      00362 
+0116   3001           00363         movlw b'00000001'
+0117   0086           00364         movwf PORTB     ;Test First Sixlet
+0118   0805           00365         movf PORTA, W   ;Lets check if we have any keypresses on the first Sixth        
+0119   1D03           00366         btfss STATUS, Z
+011A   215B           00367         call testnote   ;if STATUS is not zero we have a note!
+011B   1BBD           00368         btfsc temp_w, RA7       ;Did we get a bad return code? Aka notes full?
+011C   2913           00369         goto testkeyboard
+                      00370 
+011D   3008           00371         movlw .8                ;Second sixth starts with index 8 into noteValue
+011E   00BA           00372         movwf keyInSixth
+                      00373 
+011F   3002           00374         movlw b'00000010'
+0120   0086           00375         movwf PORTB             ;Test Second Sixlet
+0121   0805           00376         movf PORTA, W   ;Lets check if we have any keypresses on the first Sixth        
+0122   1D03           00377         btfss STATUS, Z
+0123   215B           00378         call testnote   ;if STATUS is not zero we have a note!
+0124   1BBD           00379         btfsc temp_w, RA7       ;Did we get a bad return code? Aka notes full?
+0125   2913           00380         goto testkeyboard
+                      00381 
+0126   3010           00382         movlw .16
+0127   00BA           00383         movwf keyInSixth
+                      00384 
+0128   3004           00385         movlw b'00000100'
+0129   0086           00386         movwf PORTB             ;Test Third Sixlet
+012A   0805           00387         movf PORTA, W   ;Lets check if we have any keypresses on the first Sixth        
+012B   1D03           00388         btfss STATUS, Z
+012C   215B           00389         call testnote   ;if STATUS is not zero we have a note!
+012D   1BBD           00390         btfsc temp_w, RA7       ;Did we get a bad return code? Aka notes full?
+012E   2913           00391         goto testkeyboard
+                      00392 
+012F   3018           00393         movlw .24
+0130   00BA           00394         movwf keyInSixth
+                      00395 
+0131   3010           00396         movlw b'00010000'
+0132   0086           00397         movwf PORTB             ;Test Fourth Sixlet
+0133   0805           00398         movf PORTA, W   ;Lets check if we have any keypresses on the first Sixth        
+0134   1D03           00399         btfss STATUS, Z
+0135   215B           00400         call testnote   ;if STATUS is not zero we have a note!
+0136   1BBD           00401         btfsc temp_w, RA7       ;Did we get a bad return code? Aka notes full?
+0137   2913           00402         goto testkeyboard
+                      00403 
+0138   3020           00404         movlw .32
+0139   00BA           00405         movwf keyInSixth
+                      00406 
+013A   3020           00407         movlw b'00100000'
+013B   0086           00408         movwf PORTB             ;Test Fifth Sixlet
+MPASM  5.43                          MAIN.ASM   11-20-2011  15:53:34         PAGE  9
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+013C   0805           00409         movf PORTA, W   ;Lets check if we have any keypresses on the first Sixth        
+013D   1D03           00410         btfss STATUS, Z
+013E   215B           00411         call testnote   ;if STATUS is not zero we have a note!
+013F   1BBD           00412         btfsc temp_w, RA7       ;Did we get a bad return code? Aka notes full?
+0140   2913           00413         goto testkeyboard
+                      00414 
+0141   3028           00415         movlw .40
+0142   00BA           00416         movwf keyInSixth
+                      00417 
+0143   3040           00418         movlw b'01000000'
+0144   0086           00419         movwf PORTB             ;Test Sixth Sixlet
+0145   0805           00420         movf PORTA, W   ;Lets check if we have any keypresses on the first Sixth        
+0146   1D03           00421         btfss STATUS, Z
+0147   215B           00422         call testnote   ;if STATUS is not zero we have a note!
+0148   1BBD           00423         btfsc temp_w, RA7       ;Did we get a bad return code? Aka notes full?
+0149   2913           00424         goto testkeyboard
+                      00425 
+                      00426         ;goto clearNotes
+                      00427 ;****************************************************************************
+                      00428 ;  ClearNotes.
+                      00429 ;
+                      00430 ;
+                      00431 ;
+                      00432 ;  Needs to check every note to see if we are keeping that note alive or not
+                      00433 ;  has issue if a key is held, it will erase it's Curr record.
+                      00434 ;
+                      00435 ;  Check it's active status
+                      00436 ;
+                      00437 ;***************************************************************************
+014A                  00438 clearNotes   
+014A   1C3B           00439         btfss ActiveKeys, RB0
+014B   01A0           00440         clrf Key1Th
+014C   1CBB           00441         btfss ActiveKeys, RB1
+014D   01A3           00442         clrf Key2Th
+014E   1D3B           00443         btfss ActiveKeys, RB2
+014F   01A6           00444         clrf Key3Th
+0150   1DBB           00445         btfss ActiveKeys, RB3
+0151   01A9           00446         clrf Key4Th
+0152   1E3B           00447         btfss ActiveKeys, RB4
+0153   01AC           00448         clrf Key5Th
+0154   1EBB           00449         btfss ActiveKeys, RB5
+0155   01AF           00450         clrf Key6Th
+0156   1F3B           00451         btfss ActiveKeys, RB6
+0157   01B2           00452         clrf Key7Th
+0158   1FBB           00453         btfss ActiveKeys, RB7
+0159   01B5           00454         clrf Key8Th
+                      00455 
+015A                  00456 DoneClear
+015A   2913           00457         goto testkeyboard
+                      00458 
+                      00459         cblock
+  00000043            00460         tempNoteValue
+                      00461         endc
+MPASM  5.43                          MAIN.ASM   11-20-2011  15:53:34         PAGE 10
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00462 
+                      00463 ;******************************************************************
+                      00464 ;
+                      00465 ; Test which note is active! And if we find which note is active
+                      00466 ; call newnote to activate it!
+                      00467 ;
+                      00468 ;*******************************************************************
+015B                  00469 testnote
+015B   1C05           00470         btfss PORTA, RA0;
+015C   2961           00471         goto testnote2
+015D   2191           00472         call  newnote
+015E   00BD           00473         movwf temp_w
+015F   1BBD           00474         btfsc temp_w, RA7       ;Did we get a bad return code? Aka notes full or already pressed.
+0160   0008           00475         return
+                      00476 
+0161                  00477 testnote2
+0161   0ABA           00478         incf  keyInSixth, f
+                      00479 
+0162   1C85           00480         btfss PORTA, RA1;
+0163   2968           00481         goto testnote3
+0164   2191           00482         call  newnote
+0165   00BD           00483         movwf temp_w
+0166   1BBD           00484         btfsc temp_w, RA7
+0167   0008           00485         return
+                      00486 
+0168                  00487 testnote3
+0168   0ABA           00488         incf  keyInSixth, f
+                      00489 
+0169   1D05           00490         btfss PORTA, RA2;
+016A   296F           00491         goto testnote4
+016B   2191           00492         call  newnote
+016C   00BD           00493         movwf temp_w
+016D   1BBD           00494         btfsc temp_w, RA7
+016E   0008           00495         return
+                      00496 
+016F                  00497 testnote4
+016F   0ABA           00498         incf  keyInSixth, f
+                      00499 
+0170   1D85           00500         btfss PORTA, RA3;
+0171   2976           00501         goto testnote5
+0172   2191           00502         call  newnote
+0173   00BD           00503         movwf temp_w
+0174   1BBD           00504         btfsc temp_w, RA7
+0175   0008           00505         return
+                      00506 
+0176                  00507 testnote5
+0176   0ABA           00508         incf  keyInSixth, f
+                      00509 
+0177   1E05           00510         btfss PORTA, RA4;
+0178   297D           00511         goto testnote6
+0179   2191           00512         call  newnote
+017A   00BD           00513         movwf temp_w
+017B   1BBD           00514         btfsc temp_w, RA7
+MPASM  5.43                          MAIN.ASM   11-20-2011  15:53:34         PAGE 11
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+017C   0008           00515         return
+                      00516 
+017D                  00517 testnote6
+017D   0ABA           00518         incf  keyInSixth, f
+                      00519 
+017E   1E85           00520         btfss PORTA, RA5;
+017F   2984           00521         goto testnote7
+0180   2191           00522         call  newnote
+0181   00BD           00523         movwf temp_w
+0182   1BBD           00524         btfsc temp_w, RA7
+0183   0008           00525         return
+                      00526 
+0184                  00527 testnote7
+0184   0ABA           00528         incf  keyInSixth, f
+                      00529 
+0185   1F05           00530         btfss PORTA, RA6;
+0186   298B           00531         goto testnote8
+0187   2191           00532         call  newnote
+0188   00BD           00533         movwf temp_w
+0189   1BBD           00534         btfsc temp_w, RA7
+018A   0008           00535         return
+                      00536 
+018B                  00537 testnote8
+018B   0ABA           00538         incf  keyInSixth, f
+                      00539 
+018C   1F85           00540         btfss PORTA, RA7;
+018D   2990           00541         goto testnoteend
+018E   2191           00542         call  newnote
+018F   00BD           00543         movwf temp_w
+0190                  00544 testnoteend
+0190   0008           00545         return
+                      00546 
+                      00547 ;*********************************************************************************
+                      00548 ;This is funky.  Filling up the sound structs is tricky I think.
+                      00549 ;I can probably kludge this by just checking if the struct is filled every time.
+                      00550 ;The only funky thing about this is if I add a note that's already added
+                      00551 ;in a later struct it's going to increase volume. Hmmm.... I guess this is okay
+                      00552 ;given how short a time the volume increase is likely to be and, because
+                      00553 ;there is no possibility of wraparound on the CCP1L register. (maxxed at 255)
+                      00554 ;by nature of the ISR.
+                      00555 ;Gotta test right here whether or not the note exists already.
+                      00556 ;The only way to do this better would be to run the sample rate slower (or increase clock rate)
+                      00557 ;or maybe disable interrupts?
+                      00558 ;we are probably going to get glitchyness in keypress registration (albeit not much) unless
+                      00559 ;we do that. The longest a glitch should last is probably 1 or 2 updates.
+                      00560 ;about 0.00005% error at worst per cycle.
+                      00561 ;*********************************************************************************
+0191                  00562 newnote  
+0191   083B           00563         movf ActiveKeys, W
+0192   3CFF           00564         sublw 0xFF           ;If we ActiveKeys is full we can't add any more.
+0193   1903           00565         btfsc STATUS, Z
+0194   3480           00566         retlw .128         ;Error code, full.
+                      00567 
+MPASM  5.43                          MAIN.ASM   11-20-2011  15:53:34         PAGE 12
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0195   083A           00568         movf keyInSixth, W
+0196   2200           00569         call noteValue
+0197   00C3           00570         movwf tempNoteValue
+0198   21C4           00571         call checkNote
+0199   00BD           00572         movwf temp_w
+019A   1B3D           00573         btfsc temp_w, RA6        ;Check if note already exists (RA6)
+019B   0008           00574         return               ;
+                      00575         ;Note doesn't exist, let's add it to the struct!
+019C   21A6           00576         call findFree
+019D   0084           00577         movwf FSR
+019E   0843           00578         movf tempNoteValue, W
+019F   0080           00579         movwf INDF;Key
+Message[305]: Using default destination of 1 (file).
+01A0   0A84           00580         incf  FSR
+01A1   0180           00581         clrf  INDF;KeyCurr
+Message[305]: Using default destination of 1 (file).
+01A2   0A80           00582         incf  INDF;KeyCurr, F
+Message[305]: Using default destination of 1 (file).
+01A3   0A84           00583         incf  FSR
+01A4   0180           00584         clrf  INDF;KeyState
+                      00585 
+01A5   3400           00586         retlw .0
+                      00587 
+                      00588 ;findFree finds a freeSpace
+01A6                  00589 findFree
+01A6   183B           00590         btfsc ActiveKeys, RB0
+01A7   29AA           00591         goto findFree2
+01A8   143B           00592         bsf ActiveKeys, RB0
+01A9   3420           00593         retlw Key1Th
+01AA                  00594 findFree2
+01AA   18BB           00595         btfsc ActiveKeys, RB1
+01AB   29AE           00596         goto findFree3
+01AC   14BB           00597         bsf ActiveKeys, RB1
+01AD   3423           00598         retlw Key2Th
+01AE                  00599 findFree3
+01AE   193B           00600         btfsc ActiveKeys, RB2
+01AF   29B2           00601         goto findFree4
+01B0   153B           00602         bsf ActiveKeys, RB2
+01B1   3426           00603         retlw Key3Th
+01B2                  00604 findFree4
+01B2   19BB           00605         btfsc ActiveKeys, RB3
+01B3   29B6           00606         goto findFree5
+01B4   15BB           00607         bsf ActiveKeys, RB3
+01B5   3429           00608         retlw Key4Th
+01B6                  00609 findFree5
+01B6   1A3B           00610         btfsc ActiveKeys, RB4
+01B7   29BA           00611         goto findFree6
+01B8   163B           00612         bsf ActiveKeys, RB4
+01B9   342C           00613         retlw Key5Th
+01BA                  00614 findFree6
+01BA   1ABB           00615         btfsc ActiveKeys, RB5
+01BB   29BE           00616         goto findFree7
+01BC   16BB           00617         bsf ActiveKeys, RB5
+MPASM  5.43                          MAIN.ASM   11-20-2011  15:53:34         PAGE 13
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+01BD   342F           00618         retlw Key6Th
+01BE                  00619 findFree7
+01BE   1B3B           00620         btfsc ActiveKeys, RB6
+01BF   29C2           00621         goto findFree8
+01C0   173B           00622         bsf ActiveKeys, RB6
+01C1   3432           00623         retlw Key7Th
+01C2                  00624 findFree8
+01C2   17BB           00625         bsf ActiveKeys, RB7
+01C3   3435           00626         retlw Key8Th
+                      00627 
+                      00628 ;Checks to see if the note is already being played.
+01C4                  00629 checkNote
+                      00630 
+01C4                  00631 CheckNoteOne
+01C4   0843           00632         movf tempNoteValue, W
+01C5   0220           00633         subwf Key1Th, W
+01C6   1903           00634         btfsc STATUS, Z
+01C7   29C9           00635         goto CheckNoteOneReactivate
+01C8   29CB           00636         goto CheckNoteTwo
+01C9                  00637 CheckNoteOneReactivate
+01C9   143B           00638         bsf ActiveKeys, RB0
+01CA   3440           00639         retlw .64
+                      00640 
+01CB                  00641 CheckNoteTwo
+01CB   0843           00642         movf tempNoteValue, W
+01CC   0223           00643         subwf Key2Th, W
+01CD   1903           00644         btfsc STATUS, Z
+01CE   29D0           00645         goto CheckNoteTwoReactivate
+01CF   29D2           00646         goto CheckNoteThree
+01D0                  00647 CheckNoteTwoReactivate
+01D0   14BB           00648         bsf ActiveKeys, RB1
+01D1   3440           00649         retlw .64
+                      00650 
+01D2                  00651 CheckNoteThree
+01D2   0843           00652         movf tempNoteValue, W
+01D3   0226           00653         subwf Key3Th, W
+01D4   1903           00654         btfsc STATUS, Z
+01D5   29D7           00655         goto CheckNoteThreeReactivate
+01D6   29D9           00656         goto CheckNoteFour
+01D7                  00657 CheckNoteThreeReactivate
+01D7   153B           00658         bsf ActiveKeys, RB2
+01D8   3440           00659         retlw .64
+                      00660 
+01D9                  00661 CheckNoteFour
+01D9   0843           00662         movf tempNoteValue, W
+01DA   0229           00663         subwf Key4Th, W
+01DB   1903           00664         btfsc STATUS, Z
+01DC   29DE           00665         goto CheckNoteFourReactivate
+01DD   29E0           00666         goto CheckNoteFive
+01DE                  00667 CheckNoteFourReactivate
+01DE   15BB           00668         bsf ActiveKeys, RB3
+01DF   3440           00669         retlw .64
+                      00670 
+MPASM  5.43                          MAIN.ASM   11-20-2011  15:53:34         PAGE 14
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+01E0                  00671 CheckNoteFive
+01E0   0843           00672         movf tempNoteValue, W
+01E1   022C           00673         subwf Key5Th, W
+01E2   1903           00674         btfsc STATUS, Z
+01E3   29E5           00675         goto CheckNoteFiveReactivate
+01E4   29E7           00676         goto CheckNoteSix
+01E5                  00677 CheckNoteFiveReactivate
+01E5   163B           00678         bsf ActiveKeys, RB4
+01E6   3440           00679         retlw .64
+                      00680 
+01E7                  00681 CheckNoteSix
+01E7   0843           00682         movf tempNoteValue, W
+01E8   022F           00683         subwf Key6Th, W
+01E9   1903           00684         btfsc STATUS, Z
+01EA   29EC           00685         goto CheckNoteSixReactivate
+01EB   29EE           00686         goto CheckNoteSeven
+01EC                  00687 CheckNoteSixReactivate
+01EC   16BB           00688         bsf ActiveKeys, RB5
+01ED   3440           00689         retlw .64
+                      00690 
+01EE                  00691 CheckNoteSeven
+01EE   0843           00692         movf tempNoteValue, W
+01EF   0232           00693         subwf Key7Th, W
+01F0   1903           00694         btfsc STATUS, Z
+01F1   29F3           00695         goto CheckNoteSevenReactivate
+01F2   29F5           00696         goto CheckNoteEight
+01F3                  00697 CheckNoteSevenReactivate
+01F3   173B           00698         bsf ActiveKeys, RB6
+01F4   3440           00699         retlw .64
+                      00700 
+01F5                  00701 CheckNoteEight
+01F5   0843           00702         movf tempNoteValue, W
+01F6   0235           00703         subwf Key8Th, W
+01F7   1903           00704         btfsc STATUS, Z
+01F8   29FA           00705         goto CheckNoteEightReactivate
+01F9   29FC           00706         goto CheckNoteEnd
+01FA                  00707 CheckNoteEightReactivate
+01FA   17BB           00708         bsf ActiveKeys, RB7
+01FB   3440           00709         retlw .64
+                      00710 
+01FC                  00711 CheckNoteEnd    
+01FC   3400           00712         retlw .0     ;Note doesn't exist!!
+                      00713         
+                      00714 
+0200                  00715         org 0x200
+                      00716 ; Formula= (SAMPLERATE / FREQUENCY) / 2
+                      00717 ; Some rounding and displacement to make things more fluid.
+                      00718 ; Number of samples the note is up.
+                      00719 ; Organized by sixth. 8 values per sixth
+0200                  00720 noteValue;20khz sample rate.
+0200   00BD           00721         movwf temp_w
+0201   3002           00722         movlw HIGH Notes
+0202   008A           00723         movwf PCLATH
+MPASM  5.43                          MAIN.ASM   11-20-2011  15:53:34         PAGE 15
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0203   083A           00724         movf  keyInSixth, W
+0204   0782           00725         addwf   PCL, f      ;   Move the PC this many forward
+0205                  00726 Notes
+0205   34FF           00727         retlw   .255    ;       38.8909         D??/E??                 D?1/E?1
+0206   34B6           00728         retlw   .182    ;       55              A?                      A1
+0207   3481           00729         retlw   .129    ;       77.7817         D?/E?                   D?2/E?2
+0208   345B           00730         retlw   .91     ;       110             A                       A2
+0209   3440           00731         retlw   .64     ;       155.563         d?/e?                   D?3/E?3
+020A   342D           00732         retlw   .45     ;       220             a                       A3
+020B   3420           00733         retlw   .32     ;       311.127         d?'/e?'                 D?4/E?4
+020C   3417           00734         retlw   .23     ;       440             a'                      A4 A440
+                      00735                                                                         
+020D   34F3           00736         retlw   .243    ;       41.2034         E?                      E1
+020E   34AC           00737         retlw   .172    ;       58.2705         A??/B??                 A?1/B?1
+020F   3479           00738         retlw   .121    ;       82.4069         E                       E2
+0210   3456           00739         retlw   .86     ;       116.541         A?/B?                   A?2/B?2
+0211   343D           00740         retlw   .61     ;       164.814         e                       E3
+0212   342B           00741         retlw   .43     ;       233.082         a?/b?                   A?3/B?3
+0213   341E           00742         retlw   .30     ;       329.628         e'                      E4
+0214   3416           00743         retlw   .22     ;       466.164         a?'/b?'                 A?4/B?4
+                      00744                                                                         
+0215   34E5           00745         retlw   .229    ;       43.6535         F?                      F1
+0216   34A2           00746         retlw   .162    ;       61.7354         B?                      B1
+0217   3473           00747         retlw   .115    ;       87.3071         F                       F2
+0218   3451           00748         retlw   .81     ;       123.471         B                       B2
+0219   3439           00749         retlw   .57     ;       174.614         f                       F3
+021A   3428           00750         retlw   .40     ;       246.942         b                       B3
+021B   341D           00751         retlw   .29     ;       349.228         f'                      F4
+021C   3415           00752         retlw   .21     ;       493.883         b'                      B4
+                      00753                                                                         
+021D   34D8           00754         retlw   .216    ;       46.2493         F??/G??                 F?1/G?1
+021E   3499           00755         retlw   .153    ;       65.4064         C great octave                  C2 Deep C
+021F   346C           00756         retlw   .108    ;       92.4986         F?/G?                   F?2/G?2
+0220   344C           00757         retlw   .76     ;       130.813         c small octave                  C3 Low C
+0221   3436           00758         retlw   .54     ;       184.997         f?/g?                   F?3/G?3
+0222   3426           00759         retlw   .38     ;       261.626         c' 1-line octave                        C4 Middle C
+0223   341B           00760         retlw   .27     ;       369.994         f?'/g?'                 F?4/G?4
+0224   3414           00761         retlw   .20     ;       523.251         c'' 2-line octave                       C5 Tenor C
+                      00762                                                                         
+0225   34CC           00763         retlw   .204    ;       48.9994         G?                      G1
+0226   3490           00764         retlw   .144    ;       69.2957         C?/D?                   C?2/D?2
+0227   3466           00765         retlw   .102    ;       97.9989         G                       G2
+0228   3448           00766         retlw   .72     ;       138.591         c?/d?                   C?3/D?3
+0229   3433           00767         retlw   .51     ;       195.998         g                       G3
+022A   3424           00768         retlw   .36     ;       277.183         c?'/d?'                 C?4/D?4
+022B   341A           00769         retlw   .26     ;       391.995         g'                      G4
+022C   3413           00770         retlw   .19     ;       554.365         c?''/d?''                       C?5/D?5
+                      00771                                                                         
+022D   34C1           00772         retlw   .193    ;       51.9131         G??/A??                 G?1/A?1
+022E   3488           00773         retlw   .136    ;       73.4162         D                       D2
+022F   3460           00774         retlw   .96     ;       103.826         G?/A?                   G?2/A?2
+0230   3444           00775         retlw   .68     ;       146.832         d                       D3
+0231   3430           00776         retlw   .48     ;       207.652         g?/a?                   G?3/A?3
+MPASM  5.43                          MAIN.ASM   11-20-2011  15:53:34         PAGE 16
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0232   3422           00777         retlw   .34     ;       293.665         d'                      D4
+0233   3418           00778         retlw   .24     ;       415.305         g?'/a?'                 G?4/A?4
+0234   3412           00779         retlw   .18     ;       587.33          d''                     D5
+0235   3412           00780         retlw   .18 ;
+                      00781 
+                      00782         end
+MPASM  5.43                          MAIN.ASM   11-20-2011  15:53:34         PAGE 17
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+ADDEN                             00000003
+ADEN                              00000003
+ActiveKeys                        0000003B
+BRGH                              00000002
+C                                 00000000
+C1INV                             00000004
+C1OUT                             00000006
+C2INV                             00000005
+C2OUT                             00000007
+CCP1CON                           00000017
+CCP1IE                            00000002
+CCP1IF                            00000002
+CCP1M0                            00000000
+CCP1M1                            00000001
+CCP1M2                            00000002
+CCP1M3                            00000003
+CCP1X                             00000005
+CCP1Y                             00000004
+CCPR1                             00000015
+CCPR1H                            00000016
+CCPR1L                            00000015
+CIS                               00000003
+CM0                               00000000
+CM1                               00000001
+CM2                               00000002
+CMCON                             0000001F
+CMIE                              00000006
+CMIF                              00000006
+CREN                              00000004
+CSRC                              00000007
+CheckNoteEight                    000001F5
+CheckNoteEightReactivate          000001FA
+CheckNoteEnd                      000001FC
+CheckNoteFive                     000001E0
+CheckNoteFiveReactivate           000001E5
+CheckNoteFour                     000001D9
+CheckNoteFourReactivate           000001DE
+CheckNoteOne                      000001C4
+CheckNoteOneReactivate            000001C9
+CheckNoteSeven                    000001EE
+CheckNoteSevenReactivate          000001F3
+CheckNoteSix                      000001E7
+CheckNoteSixReactivate            000001EC
+CheckNoteThree                    000001D2
+CheckNoteThreeReactivate          000001D7
+CheckNoteTwo                      000001CB
+CheckNoteTwoReactivate            000001D0
+ContextSave                       00000004
+DATA_CP_OFF                       00003FFF
+DATA_CP_ON                        00003EFF
+DC                                00000001
+DoneClear                         0000015A
+EEADR                             0000009B
+MPASM  5.43                          MAIN.ASM   11-20-2011  15:53:34         PAGE 18
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+EECON1                            0000009C
+EECON2                            0000009D
+EEDATA                            0000009A
+EEIE                              00000007
+EEIF                              00000007
+F                                 00000001
+FERR                              00000002
+FSR                               00000004
+GIE                               00000007
+INDF                              00000000
+INTCON                            0000000B
+INTE                              00000004
+INTEDG                            00000006
+INTF                              00000001
+IRP                               00000007
+Key1                              00000042
+Key1Curr                          00000021
+Key1Done                          00000051
+Key1High                          0000004B
+Key1Low                           0000004F
+Key1Set                           00000047
+Key1State                         00000022
+Key1Th                            00000020
+Key2                              00000051
+Key2Curr                          00000024
+Key2Done                          00000060
+Key2High                          0000005A
+Key2Low                           0000005E
+Key2Set                           00000056
+Key2State                         00000025
+Key2Th                            00000023
+Key3                              00000060
+Key3Curr                          00000027
+Key3Done                          0000006F
+Key3High                          00000069
+Key3Low                           0000006D
+Key3Set                           00000065
+Key3State                         00000028
+Key3Th                            00000026
+Key4                              0000006F
+Key4Curr                          0000002A
+Key4Done                          0000007E
+Key4High                          00000078
+Key4Low                           0000007C
+Key4Set                           00000074
+Key4State                         0000002B
+Key4Th                            00000029
+Key5                              0000007E
+Key5Curr                          0000002D
+Key5Done                          0000008D
+Key5High                          00000087
+Key5Low                           0000008B
+Key5Set                           00000083
+MPASM  5.43                          MAIN.ASM   11-20-2011  15:53:34         PAGE 19
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+Key5State                         0000002E
+Key5Th                            0000002C
+Key6                              0000008D
+Key6Curr                          00000030
+Key6Done                          0000009C
+Key6High                          00000096
+Key6Low                           0000009A
+Key6Set                           00000092
+Key6State                         00000031
+Key6Th                            0000002F
+Key7                              0000009C
+Key7Curr                          00000033
+Key7Done                          000000AB
+Key7High                          000000A5
+Key7Low                           000000A9
+Key7Set                           000000A1
+Key7State                         00000034
+Key7Th                            00000032
+Key8                              000000AB
+Key8Curr                          00000036
+Key8Done                          000000BA
+Key8High                          000000B4
+Key8Low                           000000B8
+Key8Set                           000000B0
+Key8State                         00000037
+Key8Th                            00000035
+NOT_BO                            00000000
+NOT_BOD                           00000000
+NOT_BOR                           00000000
+NOT_PD                            00000003
+NOT_POR                           00000001
+NOT_RBPU                          00000007
+NOT_T1SYNC                        00000002
+NOT_TO                            00000004
+Notes                             00000205
+OERR                              00000001
+OPTION_REG                        00000081
+OSCF                              00000003
+PCL                               00000002
+PCLATH                            0000000A
+PCON                              0000008E
+PEIE                              00000006
+PIE1                              0000008C
+PIR1                              0000000C
+PORTA                             00000005
+PORTA_temp                        0000003C
+PORTB                             00000006
+PR2                               00000092
+PS0                               00000000
+PS1                               00000001
+PS2                               00000002
+PSA                               00000003
+RA0                               00000000
+MPASM  5.43                          MAIN.ASM   11-20-2011  15:53:34         PAGE 20
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+RA1                               00000001
+RA2                               00000002
+RA3                               00000003
+RA4                               00000004
+RA5                               00000005
+RA6                               00000006
+RA7                               00000007
+RB0                               00000000
+RB1                               00000001
+RB2                               00000002
+RB3                               00000003
+RB4                               00000004
+RB5                               00000005
+RB6                               00000006
+RB7                               00000007
+RBIE                              00000003
+RBIF                              00000000
+RCIE                              00000005
+RCIF                              00000005
+RCREG                             0000001A
+RCSTA                             00000018
+RD                                00000000
+RP0                               00000005
+RP1                               00000006
+RX9                               00000006
+RX9D                              00000000
+SPBRG                             00000099
+SPEN                              00000007
+SREN                              00000005
+STATUS                            00000003
+SYNC                              00000004
+T0CS                              00000005
+T0IE                              00000005
+T0IF                              00000002
+T0SE                              00000004
+T1CKPS0                           00000004
+T1CKPS1                           00000005
+T1CON                             00000010
+T1OSCEN                           00000003
+T2CKPS0                           00000000
+T2CKPS1                           00000001
+T2CON                             00000012
+TMR0                              00000001
+TMR0IE                            00000005
+TMR0IF                            00000002
+TMR1CS                            00000001
+TMR1H                             0000000F
+TMR1IE                            00000000
+TMR1IF                            00000000
+TMR1L                             0000000E
+TMR1ON                            00000000
+TMR2                              00000011
+TMR2IE                            00000001
+MPASM  5.43                          MAIN.ASM   11-20-2011  15:53:34         PAGE 21
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+TMR2IF                            00000001
+TMR2ON                            00000002
+TOUTPS0                           00000003
+TOUTPS1                           00000004
+TOUTPS2                           00000005
+TOUTPS3                           00000006
+TRISA                             00000085
+TRISA0                            00000000
+TRISA1                            00000001
+TRISA2                            00000002
+TRISA3                            00000003
+TRISA4                            00000004
+TRISA5                            00000005
+TRISA6                            00000006
+TRISA7                            00000007
+TRISB                             00000086
+TRISB0                            00000000
+TRISB1                            00000001
+TRISB2                            00000002
+TRISB3                            00000003
+TRISB4                            00000004
+TRISB5                            00000005
+TRISB6                            00000006
+TRISB7                            00000007
+TRMT                              00000001
+TX9                               00000006
+TX9D                              00000000
+TXEN                              00000005
+TXIE                              00000004
+TXIF                              00000004
+TXREG                             00000019
+TXSTA                             00000098
+VR0                               00000000
+VR1                               00000001
+VR2                               00000002
+VR3                               00000003
+VRCON                             0000009F
+VREN                              00000007
+VROE                              00000006
+VRR                               00000005
+W                                 00000000
+WR                                00000001
+WREN                              00000002
+WRERR                             00000003
+Z                                 00000002
+_BODEN_OFF                        00003FBF
+_BODEN_ON                         00003FFF
+_BOREN_OFF                        00003FBF
+_BOREN_ON                         00003FFF
+_CONFIG                           00002007
+_CPD_OFF                          00003FFF
+_CPD_ON                           00003EFF
+_CP_OFF                           00003FFF
+MPASM  5.43                          MAIN.ASM   11-20-2011  15:53:34         PAGE 22
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+_CP_ON                            00001FFF
+_DEVID1                           00002006
+_ER_OSC_CLKOUT                    00003FFF
+_ER_OSC_NOCLKOUT                  00003FFE
+_EXTCLK_OSC                       00003FEF
+_FOSC_ECIO                        00003FEF
+_FOSC_EXTRCCLK                    00003FFF
+_FOSC_EXTRCIO                     00003FFE
+_FOSC_HS                          00003FEE
+_FOSC_INTOSCCLK                   00003FFD
+_FOSC_INTOSCIO                    00003FFC
+_FOSC_LP                          00003FEC
+_FOSC_XT                          00003FED
+_HS_OSC                           00003FEE
+_IDLOC0                           00002000
+_IDLOC1                           00002001
+_IDLOC2                           00002002
+_IDLOC3                           00002003
+_INTOSC_OSC_CLKOUT                00003FFD
+_INTOSC_OSC_NOCLKOUT              00003FFC
+_INTRC_OSC_CLKOUT                 00003FFD
+_INTRC_OSC_NOCLKOUT               00003FFC
+_LP_OSC                           00003FEC
+_LVP_OFF                          00003F7F
+_LVP_ON                           00003FFF
+_MCLRE_OFF                        00003FDF
+_MCLRE_ON                         00003FFF
+_PWRTE_OFF                        00003FFF
+_PWRTE_ON                         00003FF7
+_RC_OSC_CLKOUT                    00003FFF
+_RC_OSC_NOCLKOUT                  00003FFE
+_WDTE_OFF                         00003FFB
+_WDTE_ON                          00003FFF
+_WDT_OFF                          00003FFB
+_WDT_ON                           00003FFF
+_XT_OSC                           00003FED
+__16F628A                         00000001
+checkNote                         000001C4
+clearNotes                        0000014A
+currsixth                         00000039
+dispathc_int                      0000000D
+findFree                          000001A6
+findFree2                         000001AA
+findFree3                         000001AE
+findFree4                         000001B2
+findFree5                         000001B6
+findFree6                         000001BA
+findFree7                         000001BE
+findFree8                         000001C2
+fired                             00000041
+int_sound                         00000042
+int_sound_out                     000000BA
+intexit                           000000BD
+MPASM  5.43                          MAIN.ASM   11-20-2011  15:53:34         PAGE 23
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+keyInSixth                        0000003A
+newnote                           00000191
+noteValue                         00000200
+outChannel                        00000038
+startupcode                       000000FC
+tempNoteValue                     00000043
+temp_fsr                          00000042
+temp_pclath                       00000040
+temp_s                            0000003F
+temp_w                            0000003D
+temp_w_isr                        0000003E
+testkeyboard                      00000113
+testnote                          0000015B
+testnote2                         00000161
+testnote3                         00000168
+testnote4                         0000016F
+testnote5                         00000176
+testnote6                         0000017D
+testnote7                         00000184
+testnote8                         0000018B
+testnoteend                       00000190
+
+
+MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
+
+0000 : X---XXXXXXXXXXX- ---------------- ---------------- ----------------
+0040 : --XXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+0080 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+00C0 : XXXXXX---------- ---------------- ---------------- ------------XXXX
+0100 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+0140 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+0180 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+01C0 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXX---
+0200 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXX----------
+2000 : -------X-------- ---------------- ---------------- ----------------
+
+All other memory blocks unused.
+
+Program Memory Words Used:   455
+Program Memory Words Free:  1593
+
+
+Errors   :     0
+Warnings :     0 reported,     0 suppressed
+Messages :     8 reported,     0 suppressed
+
+

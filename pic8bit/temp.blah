@@ -1,0 +1,159 @@
+	;movlw 21   ;decimal 21 for middle C
+	;call noteValue
+	movlw 19     ;Middle C
+	movwf Key1Th
+	clrf  Key1State
+	clrf  Key1Curr
+	call  Delay
+	call  Delay
+	call  Delay
+
+	movlw 15     ; E
+	movwf Key2Th
+	clrf  Key2State
+	clrf  Key2Curr
+	call  Delay
+	call  Delay
+	call  Delay
+
+	movlw 12     ;G
+	movwf Key3Th
+	clrf  Key3State
+	clrf  Key3Curr
+	call  Delay
+	call  Delay
+	call  Delay
+	
+	clrf  Key1Th
+	clrf  Key2Th
+	clrf  Key3Th
+	call  Delay
+	call  Delay
+
+	
+	cblock
+	d1
+	d2
+	d3
+	endc
+Delay
+			;999997 cycles
+	movlw	0x08
+	movwf	d1
+	movlw	0x2F
+	movwf	d2
+	movlw	0x03
+	movwf	d3
+Delay_0
+	decfsz	d1, f
+	goto	$+2
+	decfsz	d2, f
+	goto	$+2
+	decfsz	d3, f
+	goto	Delay_0
+
+			;3 cycles
+	goto	$+1
+	return
+
+;/***************************
+;  TMR1H:L needs to have (500 - the number of ops in our interrupt.) It generates an interrupt on overflow.
+;  Also, we may need to disable the timer while resetting it's value every interrupt.
+;  This may be run too slow.  Something about TOSC/4 i dunno.  I'll increase it if quality is shitty.
+;
+;  Probably should be ran at a rate of 40khz or somewherez in there.
+;
+;*************************/
+	;movlw b'00000101'
+		;bits6543 10
+	;movwf T1CON	;turn timer1 on timer1 is a 16 bit timer, perfect for our application.
+				;maybe not.... timer1 doesn't have a comparison register.
+				;Only generates interrupts on overflow.
+				; Timer 2 which is 8 bit has a pre and post scaler and can be compared to
+				; PR2 for exact timing.
+				; Reccomend Postscaling of 1:5 and PR2:100 should get me 500 cycles between
+				; PWM samples
+				; Meh, oscillator is only 4mhz so I dunno. I think I'm only going to get 100 cycles
+				; between updates at 40khz sound.  Maybe I should switch to 20khz or 10khz again.
+				; I'll need more accuracy though at these levels.
+				; Also consider an external RC circuit at 20Mhz
+				
+	;movlw b'00000000' ;Least significant bit of our timer.
+	;movwf TMR1L
+
+;PR2 = 0b01111100 ;
+;T2CON = 0b00000100 ;
+;CCPR1L = 0b00111110 ;
+;CCP1CON = 0b00011100 ;
+;	http://www.micro-examples.com/public/microex-navig/doc/097-pwm-calculator.html
+
+
+
+keyboard
+	movlw 0x00
+	movwf currkey	;we are looking at the first key everytime we restart
+	movlw 0x20
+	movwf FSR ;set keypointer
+			  ;This might be at a bad point
+			 
+ 	movlw 0x01
+	movwf PORTB ;Let's look at all of the first keys
+				;in each set of 6 keys
+nextkey
+	movf PORTA, W	;Lets see if there is anything on PORTA
+	btfss STATUS, Z
+	goto newnote	;if there is we have a note!
+nextkey1
+	btfsc PORTB, RB2	;If the 3rd bit is set then we have to skip to the
+	 goto keyspecial
+	bcf STATUS, C
+	incf currkey, f	;Next time we come around we will be looking at the next key
+	rlf PORTB, 1
+	btfss PORTB, RB7
+	 goto nextkey
+	goto keyboard
+
+keyspecial			;if we are on bit three, we need to hop up to
+	movlw 0x10		;bit 5. Bit 4 of PORTB is reserved for PWM output.
+	movwf PORTB
+	goto nextkey
+
+;newnote
+	movlw 0x00
+	movwf currsixth			;We always start out looking at the first sixth
+	movlw 0x08
+	subwf curr_channels, W	;Make sure we have channels left
+							;prolly gonna ditch this and let someone else take care
+							;of curr_channels
+	btfsc STATUS, Z
+	goto nextkey1
+	movlw 0x01
+	movwf bitmask
+newnote1
+	btfsc bitmask, 7 ;Did we just look at the last possible key group?
+					;This is fucked, will miss one set of keys
+					;maybe instead check to see if bitmask is 0
+	goto nextkey1
+
+	movf PORTA, W
+	andwf bitmask, W	;Mask PORTA to see if the key was in this sixth
+	bcf STATUS, C		;Clearing carry to make sure out bitmask remains pristine
+	rlf bitmask, 1
+
+	btfsc STATUS, 2		;Is the bit we just tested empty?
+	goto nextsixth		;if so we need to increase the currsixth
+						;and go back to newnote1
+	;call frequencylookup
+	movlw 0x06
+	addwf currsixth, 1	;Next time we are gonna look at next sixth
+						;we need current sixth inside the lookup
+	movf curr_channels, W
+	sublw 8
+	btfsc STATUS, Z
+	goto nextkey1
+	goto newnote1
+
+nextsixth	;Next time we are gonna look at next sixth
+	movlw 0x06
+	addwf currsixth, 1
+	goto newnote1

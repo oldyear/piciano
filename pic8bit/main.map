@@ -1,0 +1,214 @@
+MPLINK 4.41, Linker
+Linker Map File - Created Sun Nov 20 15:53:34 2011
+
+                                 Section Info
+                  Section       Type    Address   Location Size(Bytes)
+                ---------  ---------  ---------  ---------  ---------
+                   .org_0       code   0x000000    program   0x000000
+                   .org_1       code   0x000000    program   0x000002
+                   .org_2       code   0x000004    program   0x000016
+                   .org_3       code   0x000042    program   0x000108
+                   .org_4       code   0x0000fc    program   0x000202
+                   .org_5       code   0x000200    program   0x00006c
+      .config_2007_MAIN.O       code   0x002007    program   0x000002
+
+
+
+                              Program Memory Usage 
+                               Start         End      
+                           ---------   ---------      
+                            0x000000    0x000000      
+                            0x000004    0x00000e      
+                            0x000042    0x0000c5      
+                            0x0000fc    0x0001fc      
+                            0x000200    0x000235      
+                            0x002007    0x002007      
+            456 out of 2182 program addresses used, program memory utilization is 20%
+
+
+
+                              Symbols - Sorted by Name
+                     Name    Address   Location    Storage File                     
+                ---------  ---------  ---------  --------- ---------                
+           CheckNoteEight   0x0001f5    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+ CheckNoteEightReactivate   0x0001fa    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+             CheckNoteEnd   0x0001fc    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+            CheckNoteFive   0x0001e0    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+  CheckNoteFiveReactivate   0x0001e5    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+            CheckNoteFour   0x0001d9    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+  CheckNoteFourReactivate   0x0001de    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+             CheckNoteOne   0x0001c4    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+   CheckNoteOneReactivate   0x0001c9    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+           CheckNoteSeven   0x0001ee    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+ CheckNoteSevenReactivate   0x0001f3    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+             CheckNoteSix   0x0001e7    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+   CheckNoteSixReactivate   0x0001ec    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+           CheckNoteThree   0x0001d2    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+ CheckNoteThreeReactivate   0x0001d7    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+             CheckNoteTwo   0x0001cb    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+   CheckNoteTwoReactivate   0x0001d0    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+              ContextSave   0x000004    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                DoneClear   0x00015a    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                     Key1   0x000042    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key1Done   0x000051    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key1High   0x00004b    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key1Low   0x00004f    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key1Set   0x000047    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                     Key2   0x000051    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key2Done   0x000060    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key2High   0x00005a    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key2Low   0x00005e    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key2Set   0x000056    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                     Key3   0x000060    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key3Done   0x00006f    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key3High   0x000069    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key3Low   0x00006d    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key3Set   0x000065    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                     Key4   0x00006f    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key4Done   0x00007e    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key4High   0x000078    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key4Low   0x00007c    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key4Set   0x000074    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                     Key5   0x00007e    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key5Done   0x00008d    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key5High   0x000087    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key5Low   0x00008b    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key5Set   0x000083    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                     Key6   0x00008d    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key6Done   0x00009c    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key6High   0x000096    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key6Low   0x00009a    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key6Set   0x000092    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                     Key7   0x00009c    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key7Done   0x0000ab    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key7High   0x0000a5    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key7Low   0x0000a9    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key7Set   0x0000a1    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                     Key8   0x0000ab    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key8Done   0x0000ba    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key8High   0x0000b4    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key8Low   0x0000b8    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key8Set   0x0000b0    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                    Notes   0x000205    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                checkNote   0x0001c4    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+               clearNotes   0x00014a    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+             dispathc_int   0x00000d    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 findFree   0x0001a6    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                findFree2   0x0001aa    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                findFree3   0x0001ae    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                findFree4   0x0001b2    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                findFree5   0x0001b6    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                findFree6   0x0001ba    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                findFree7   0x0001be    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                findFree8   0x0001c2    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                int_sound   0x000042    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+            int_sound_out   0x0000ba    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  intexit   0x0000bd    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  newnote   0x000191    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                noteValue   0x000200    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+              startupcode   0x0000fc    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+             testkeyboard   0x000113    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 testnote   0x00015b    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                testnote2   0x000161    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                testnote3   0x000168    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                testnote4   0x00016f    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                testnote5   0x000176    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                testnote6   0x00017d    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                testnote7   0x000184    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                testnote8   0x00018b    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+              testnoteend   0x000190    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+
+
+
+                              Symbols - Sorted by Address
+                     Name    Address   Location    Storage File                     
+                ---------  ---------  ---------  --------- ---------                
+              ContextSave   0x000004    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+             dispathc_int   0x00000d    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                     Key1   0x000042    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                int_sound   0x000042    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key1Set   0x000047    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key1High   0x00004b    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key1Low   0x00004f    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                     Key2   0x000051    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key1Done   0x000051    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key2Set   0x000056    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key2High   0x00005a    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key2Low   0x00005e    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key2Done   0x000060    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                     Key3   0x000060    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key3Set   0x000065    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key3High   0x000069    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key3Low   0x00006d    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key3Done   0x00006f    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                     Key4   0x00006f    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key4Set   0x000074    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key4High   0x000078    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key4Low   0x00007c    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key4Done   0x00007e    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                     Key5   0x00007e    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key5Set   0x000083    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key5High   0x000087    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key5Low   0x00008b    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                     Key6   0x00008d    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key5Done   0x00008d    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key6Set   0x000092    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key6High   0x000096    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key6Low   0x00009a    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key6Done   0x00009c    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                     Key7   0x00009c    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key7Set   0x0000a1    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key7High   0x0000a5    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key7Low   0x0000a9    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key7Done   0x0000ab    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                     Key8   0x0000ab    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key8Set   0x0000b0    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key8High   0x0000b4    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  Key8Low   0x0000b8    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+            int_sound_out   0x0000ba    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 Key8Done   0x0000ba    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  intexit   0x0000bd    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+              startupcode   0x0000fc    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+             testkeyboard   0x000113    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+               clearNotes   0x00014a    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                DoneClear   0x00015a    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 testnote   0x00015b    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                testnote2   0x000161    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                testnote3   0x000168    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                testnote4   0x00016f    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                testnote5   0x000176    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                testnote6   0x00017d    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                testnote7   0x000184    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                testnote8   0x00018b    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+              testnoteend   0x000190    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                  newnote   0x000191    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                 findFree   0x0001a6    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                findFree2   0x0001aa    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                findFree3   0x0001ae    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                findFree4   0x0001b2    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                findFree5   0x0001b6    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                findFree6   0x0001ba    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                findFree7   0x0001be    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                findFree8   0x0001c2    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+             CheckNoteOne   0x0001c4    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                checkNote   0x0001c4    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+   CheckNoteOneReactivate   0x0001c9    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+             CheckNoteTwo   0x0001cb    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+   CheckNoteTwoReactivate   0x0001d0    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+           CheckNoteThree   0x0001d2    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+ CheckNoteThreeReactivate   0x0001d7    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+            CheckNoteFour   0x0001d9    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+  CheckNoteFourReactivate   0x0001de    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+            CheckNoteFive   0x0001e0    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+  CheckNoteFiveReactivate   0x0001e5    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+             CheckNoteSix   0x0001e7    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+   CheckNoteSixReactivate   0x0001ec    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+           CheckNoteSeven   0x0001ee    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+ CheckNoteSevenReactivate   0x0001f3    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+           CheckNoteEight   0x0001f5    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+ CheckNoteEightReactivate   0x0001fa    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+             CheckNoteEnd   0x0001fc    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                noteValue   0x000200    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+                    Notes   0x000205    program     static C:\Users\Nick\Desktop\pic8bit\main.asm
+
+
